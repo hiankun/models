@@ -23,7 +23,7 @@ import random
 import tarfile
 
 # pylint: disable=g-bad-import-order
-from absl import app as absl_app
+from absl import app
 from absl import flags
 from absl import logging
 import six
@@ -383,7 +383,7 @@ def main(unused_argv):
 
   # Download test_data
   logging.info("Step 1/5: Downloading test data")
-  train_files = get_raw_files(FLAGS.data_dir, _TEST_DATA_SOURCES)
+  get_raw_files(FLAGS.data_dir, _TEST_DATA_SOURCES)
 
   # Get paths of download/extracted training and evaluation files.
   logging.info("Step 2/5: Downloading data from source")
@@ -436,4 +436,4 @@ if __name__ == "__main__":
   logging.set_verbosity(logging.INFO)
   define_data_download_flags()
   FLAGS = flags.FLAGS
-  absl_app.run(main)
+  app.run(main)

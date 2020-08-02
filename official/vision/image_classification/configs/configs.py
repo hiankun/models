@@ -52,8 +52,10 @@ class EfficientNetImageNetConfig(base_configs.ExperimentConfig):
       callbacks=base_configs.CallbacksConfig(enable_checkpoint_and_export=True,
                                              enable_tensorboard=True),
       metrics=['accuracy', 'top_5'],
+      time_history=base_configs.TimeHistoryConfig(log_steps=100),
       tensorboard=base_configs.TensorboardConfig(track_lr=True,
-                                                 write_model_weights=False))
+                                                 write_model_weights=False),
+      set_epoch_loop=False)
   evaluation: base_configs.EvalConfig = base_configs.EvalConfig(
       epochs_between_evals=1,
       steps=None)
@@ -83,8 +85,10 @@ class ResNetImagenetConfig(base_configs.ExperimentConfig):
       callbacks=base_configs.CallbacksConfig(enable_checkpoint_and_export=True,
                                              enable_tensorboard=True),
       metrics=['accuracy', 'top_5'],
+      time_history=base_configs.TimeHistoryConfig(log_steps=100),
       tensorboard=base_configs.TensorboardConfig(track_lr=True,
-                                                 write_model_weights=False))
+                                                 write_model_weights=False),
+      set_epoch_loop=False)
   evaluation: base_configs.EvalConfig = base_configs.EvalConfig(
       epochs_between_evals=1,
       steps=None)

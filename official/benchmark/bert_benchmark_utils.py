@@ -23,11 +23,11 @@ import time
 # pylint: disable=g-bad-import-order
 import numpy as np
 from absl import flags
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 # pylint: enable=g-bad-import-order
 
 from official.utils.flags import core as flags_core
-from official.utils.testing.perfzero_benchmark import PerfZeroBenchmark
+from official.benchmark.perfzero_benchmark import PerfZeroBenchmark
 
 FLAGS = flags.FLAGS
 
@@ -67,8 +67,9 @@ class BertBenchmarkBase(PerfZeroBenchmark):
   """Base class to hold methods common to test classes."""
   local_flags = None
 
-  def __init__(self, output_dir=None):
-    super(BertBenchmarkBase, self).__init__(output_dir=output_dir)
+  def __init__(self, output_dir=None, tpu=None, **kwargs):
+    super(BertBenchmarkBase, self).__init__(
+        output_dir=output_dir, tpu=tpu, **kwargs)
     self.num_gpus = 8
     self.timer_callback = None
 

@@ -30,10 +30,11 @@ import tensorflow as tf
 # pylint: enable=g-bad-import-order
 
 from official.benchmark import bert_benchmark_utils as benchmark_utils
+from official.benchmark import owner_utils
 from official.nlp.bert import run_squad
 from official.utils.misc import distribution_utils
 from official.utils.misc import keras_utils
-from official.utils.testing import benchmark_wrappers
+from official.benchmark import benchmark_wrappers
 
 
 # pylint: disable=line-too-long
@@ -55,8 +56,7 @@ class BertSquadBenchmarkBase(benchmark_utils.BertBenchmarkBase):
   """Base class to hold methods common to test classes in the module."""
 
   def __init__(self, output_dir=None, tpu=None):
-    super(BertSquadBenchmarkBase, self).__init__(output_dir=output_dir)
-    self.tpu = tpu
+    super(BertSquadBenchmarkBase, self).__init__(output_dir=output_dir, tpu=tpu)
 
   def _read_training_summary_from_file(self):
     """Reads the training summary from a file."""
@@ -104,7 +104,6 @@ class BertSquadBenchmarkBase(benchmark_utils.BertBenchmarkBase):
   @flagsaver.flagsaver
   def _train_squad(self, run_eagerly=False, ds_type='mirrored'):
     """Runs BERT SQuAD training. Uses mirrored strategy by default."""
-    assert tf.version.VERSION.startswith('2.')
     self._init_gpu_and_data_threads()
     input_meta_data = self._read_input_meta_data_from_file()
     strategy = self._get_distribution_strategy(ds_type)
@@ -118,7 +117,6 @@ class BertSquadBenchmarkBase(benchmark_utils.BertBenchmarkBase):
   @flagsaver.flagsaver
   def _evaluate_squad(self, ds_type='mirrored'):
     """Runs BERT SQuAD evaluation. Uses mirrored strategy by default."""
-    assert tf.version.VERSION.startswith('2.')
     self._init_gpu_and_data_threads()
     input_meta_data = self._read_input_meta_data_from_file()
     strategy = self._get_distribution_strategy(ds_type)
@@ -128,7 +126,7 @@ class BertSquadBenchmarkBase(benchmark_utils.BertBenchmarkBase):
     eval_metrics = run_squad.eval_squad(strategy=strategy,
                                         input_meta_data=input_meta_data)
     # Use F1 score as reported evaluation metric.
-    self.eval_metrics = eval_metrics['f1']
+    self.eval_metrics = eval_metrics['final_f1']
 
 
 class BertSquadBenchmarkReal(BertSquadBenchmarkBase):
@@ -228,33 +226,14 @@ class BertSquadBenchmarkReal(BertSquadBenchmarkBase):
 
     self._run_and_report_benchmark(ds_type='off', run_eagerly=True)
 
-  def benchmark_2_gpu(self):
-    """Tests BERT SQuAD model performance with 2 GPUs."""
-
-    self._setup()
-    self.num_gpus = 2
-    FLAGS.model_dir = self._get_model_dir('benchmark_2_gpu_squad')
-    FLAGS.train_batch_size = 8
-
-    self._run_and_report_benchmark()
-
-  def benchmark_4_gpu(self):
-    """Tests BERT SQuAD model performance with 4 GPUs."""
-
-    self._setup()
-    self.num_gpus = 4
-    FLAGS.model_dir = self._get_model_dir('benchmark_4_gpu_squad')
-    FLAGS.train_batch_size = 16
-
-    self._run_and_report_benchmark()
-
+  @owner_utils.Owner('tf-model-garden')
   def benchmark_8_gpu(self):
     """Tests BERT SQuAD model performance with 8 GPUs."""
 
     self._setup()
     self.num_gpus = 8
     FLAGS.model_dir = self._get_model_dir('benchmark_8_gpu_squad')
-    FLAGS.train_batch_size = 32
+    FLAGS.train_batch_size = 24
     FLAGS.tf_gpu_thread_mode = 'gpu_private'
 
     self._run_and_report_benchmark()
@@ -291,30 +270,6 @@ class BertSquadBenchmarkReal(BertSquadBenchmarkBase):
     FLAGS.model_dir = self._get_model_dir('benchmark_1_gpu_xla_squad_fp16')
     FLAGS.train_batch_size = 4
     FLAGS.enable_xla = True
-    FLAGS.dtype = 'fp16'
-    FLAGS.loss_scale = 'dynamic'
-
-    self._run_and_report_benchmark()
-
-  def benchmark_2_gpu_fp16(self):
-    """Tests BERT SQuAD model performance with 2 GPUs and FP16."""
-
-    self._setup()
-    self.num_gpus = 2
-    FLAGS.model_dir = self._get_model_dir('benchmark_2_gpu_squad_fp16')
-    FLAGS.train_batch_size = 8
-    FLAGS.dtype = 'fp16'
-    FLAGS.loss_scale = 'dynamic'
-
-    self._run_and_report_benchmark()
-
-  def benchmark_4_gpu_fp16(self):
-    """Tests BERT SQuAD model performance with 4 GPUs and FP16."""
-
-    self._setup()
-    self.num_gpus = 4
-    FLAGS.model_dir = self._get_model_dir('benchmark_4_gpu_squad_fp16')
-    FLAGS.train_batch_size = 16
     FLAGS.dtype = 'fp16'
     FLAGS.loss_scale = 'dynamic'
 
@@ -358,18 +313,6 @@ class BertSquadBenchmarkReal(BertSquadBenchmarkBase):
 
     self._run_and_report_benchmark()
 
-  def benchmark_4_gpu_amp(self):
-    """Tests BERT SQuAD model performance with 1 GPU with automatic mixed precision."""
-
-    self._setup()
-    self.num_gpus = 4
-    FLAGS.model_dir = self._get_model_dir('benchmark_4_gpu_amp_squad')
-    FLAGS.train_batch_size = 16
-    FLAGS.dtype = 'fp16'
-    FLAGS.fp16_implementation = 'graph_rewrite'
-
-    self._run_and_report_benchmark()
-
   def benchmark_8_gpu_amp(self):
     """Tests BERT SQuAD model performance with 1 GPU with automatic mixed precision."""
 
@@ -383,13 +326,20 @@ class BertSquadBenchmarkReal(BertSquadBenchmarkBase):
 
     self._run_and_report_benchmark()
 
+  @owner_utils.Owner('tf-model-garden')
   def benchmark_2x2_tpu(self):
     """Tests BERT SQuAD model performance with 2x2 TPU."""
 
     self._setup()
     FLAGS.model_dir = self._get_model_dir('benchmark_2x2_tpu')
     FLAGS.train_batch_size = 48
-
+    FLAGS.predict_batch_size = 48
+    FLAGS.mode = 'train'
+    FLAGS.learning_rate = 8e-5
+    FLAGS.num_train_epochs = 1
+    FLAGS.steps_per_loop = 100
+    FLAGS.do_lower_case = True
+    FLAGS.init_checkpoint = PRETRAINED_CHECKPOINT_PATH
     self._run_and_report_benchmark()
 
 
@@ -446,6 +396,7 @@ class BertSquadAccuracy(BertSquadBenchmarkBase):
 
     self._run_and_report_benchmark(ds_type='off', run_eagerly=True)
 
+  @owner_utils.Owner('tf-model-garden')
   def benchmark_8_gpu(self):
     """Tests BERT SQuAD model accuracy with 8 GPUs."""
 
@@ -482,6 +433,7 @@ class BertSquadAccuracy(BertSquadBenchmarkBase):
 
     self._run_and_report_benchmark()
 
+  @owner_utils.Owner('tf-model-garden')
   def benchmark_2x2_tpu(self):
     """Tests BERT SQuAD model accuracy with 2x2 TPU."""
 

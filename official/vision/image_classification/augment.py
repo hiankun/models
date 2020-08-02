@@ -25,7 +25,7 @@ from __future__ import print_function
 
 import math
 import tensorflow as tf
-from typing import Any, Dict, Iterable, List, Optional, Text, Tuple, Union
+from typing import Any, Dict, List, Optional, Text, Tuple
 
 from tensorflow.python.keras.layers.preprocessing import image_preprocessing as image_ops
 
@@ -66,7 +66,7 @@ def to_4d(image: tf.Tensor) -> tf.Tensor:
   return tf.reshape(image, new_shape)
 
 
-def from_4d(image: tf.Tensor, ndims: int) -> tf.Tensor:
+def from_4d(image: tf.Tensor, ndims: tf.Tensor) -> tf.Tensor:
   """Converts a 4D image back to `ndims` rank."""
   shape = tf.shape(image)
   begin = tf.cast(tf.less_equal(ndims, 3), dtype=tf.int32)
@@ -75,7 +75,7 @@ def from_4d(image: tf.Tensor, ndims: int) -> tf.Tensor:
   return tf.reshape(image, new_shape)
 
 
-def _convert_translation_to_transform(translations) -> tf.Tensor:
+def _convert_translation_to_transform(translations: tf.Tensor) -> tf.Tensor:
   """Converts translations to a projective transform.
 
   The translation matrix looks like this:
@@ -121,9 +121,9 @@ def _convert_translation_to_transform(translations) -> tf.Tensor:
 
 
 def _convert_angles_to_transform(
-    angles: Union[Iterable[float], float],
-    image_width: int,
-    image_height: int) -> tf.Tensor:
+    angles: tf.Tensor,
+    image_width: tf.Tensor,
+    image_height: tf.Tensor) -> tf.Tensor:
   """Converts an angle or angles to a projective transform.
 
   Args:
@@ -169,7 +169,7 @@ def transform(image: tf.Tensor, transforms) -> tf.Tensor:
   """Prepares input data for `image_ops.transform`."""
   original_ndims = tf.rank(image)
   transforms = tf.convert_to_tensor(transforms, dtype=tf.float32)
-  if len(tf.shape(transforms)) == 1:
+  if transforms.shape.rank == 1:
     transforms = transforms[None]
   image = to_4d(image)
   image = image_ops.transform(
@@ -209,7 +209,7 @@ def rotate(image: tf.Tensor, degrees: float) -> tf.Tensor:
   """
   # Convert from degrees to radians.
   degrees_to_radians = math.pi / 180.0
-  radians = degrees * degrees_to_radians
+  radians = tf.cast(degrees * degrees_to_radians, tf.float32)
 
   original_ndims = tf.rank(image)
   image = to_4d(image)
@@ -989,7 +989,7 @@ class RandAugment(ImageAugment):
             # pylint:disable=g-long-lambda
             lambda selected_func=func, selected_args=args: selected_func(
                 image, *selected_args)))
-            # pylint:enable=g-long-lambda
+        # pylint:enable=g-long-lambda
 
       image = tf.switch_case(branch_index=op_to_select,
                              branch_fns=branch_fns,
